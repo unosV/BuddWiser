@@ -28,6 +28,7 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     budgets = db.relationship('Budget', backref='user', lazy=True, cascade='all, delete-orphan')
+    categories = db.relationship('UserCategory', backref='user', lazy=True, cascade='all, delete-orphan')
 
 class Budget(db.Model):
     __tablename__ = 'budgets'
@@ -51,7 +52,18 @@ class Transaction(db.Model):
     date = db.Column(db.Date, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Default categories with icons
+class UserCategory(db.Model):
+    __tablename__ = 'user_categories'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    icon = db.Column(db.String(10), default='📝')
+    color = db.Column(db.String(7), default='#36A2EB')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (db.UniqueConstraint('user_id', 'name', name='unique_user_category'),)
+
+# Default categories
 DEFAULT_CATEGORIES = [
     {'name': 'Groceries', 'icon': '🍔', 'color': '#FF6384'},
     {'name': 'Transport', 'icon': '🚗', 'color': '#36A2EB'},
@@ -67,11 +79,36 @@ DEFAULT_CATEGORIES = [
 
 # ==================== HELPER FUNCTIONS ====================
 
-def get_category_info(category_name):
+def get_user_categories(user_id):
+    """Get all categories for a user (default + custom)"""
+    custom_categories = UserCategory.query.filter_by(user_id=user_id).all()
+    
+    # Combine default and custom categories
+    all_categories = DEFAULT_CATEGORIES.copy()
+    
+    for cat in custom_categories:
+        all_categories.append({
+            'id': cat.id,
+            'name': cat.name,
+            'icon': cat.icon,
+            'color': cat.color,
+            'custom': True
+        })
+    
+    return all_categories
+
+def get_category_info(category_name, user_id):
     """Get icon and color for a category"""
+    # Check custom categories first
+    custom = UserCategory.query.filter_by(user_id=user_id, name=category_name).first()
+    if custom:
+        return custom.icon, custom.color
+    
+    # Check default categories
     cat = next((c for c in DEFAULT_CATEGORIES if c['name'] == category_name), None)
     if cat:
         return cat['icon'], cat['color']
+    
     return '📝', '#36A2EB'
 
 def get_week_dates(date_obj):
@@ -141,12 +178,95 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# ==================== API ROUTES ====================
+# ==================== CATEGORY API ROUTES ====================
 
 @app.route('/api/categories')
 def get_categories():
-    """Get all available categories"""
-    return jsonify(DEFAULT_CATEGORIES)
+    """Get all available categories for the current user"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    user_id = session['user_id']
+    categories = get_user_categories(user_id)
+    
+    return jsonify(categories)
+
+@app.route('/api/category', methods=['POST'])
+def add_category():
+    """Add a custom category"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    user_id = session['user_id']
+    data = request.get_json()
+    
+    name = data.get('name', '').strip()
+    icon = data.get('icon', '📝').strip()
+    color = data.get('color', '#36A2EB').strip()
+    
+    if not name:
+        return jsonify({'error': 'Category name is required'}), 400
+    
+    # Check if category already exists
+    if UserCategory.query.filter_by(user_id=user_id, name=name).first():
+        return jsonify({'error': 'Category already exists'}), 400
+    
+    # Check if it's a default category
+    if any(c['name'] == name for c in DEFAULT_CATEGORIES):
+        return jsonify({'error': 'Cannot create category with default name'}), 400
+    
+    new_category = UserCategory(
+        user_id=user_id,
+        name=name,
+        icon=icon,
+        color=color
+    )
+    
+    db.session.add(new_category)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'category': {
+            'id': new_category.id,
+            'name': new_category.name,
+            'icon': new_category.icon,
+            'color': new_category.color,
+            'custom': True
+        }
+    })
+
+@app.route('/api/category/<int:category_id>', methods=['DELETE'])
+def delete_category(category_id):
+    """Delete a custom category"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    user_id = session['user_id']
+    
+    category = UserCategory.query.filter_by(id=category_id, user_id=user_id).first()
+    
+    if not category:
+        return jsonify({'error': 'Category not found'}), 404
+    
+    # Check if category is being used in transactions
+    transactions_count = db.session.query(func.count(Transaction.id)).join(Budget).filter(
+        Budget.user_id == user_id,
+        Transaction.category == category.name
+    ).scalar()
+    
+    if transactions_count > 0:
+        return jsonify({
+            'error': f'Cannot delete category. It is used in {transactions_count} transaction(s)',
+            'count': transactions_count
+        }), 400
+    
+    db.session.delete(category)
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+# ==================== BUDGET API ROUTES ====================
 
 @app.route('/api/budget/<month>')
 def get_budget(month):
@@ -182,7 +302,7 @@ def get_budget(month):
     # Format categories with icons and colors
     categories = []
     for cat in category_totals:
-        icon, color = get_category_info(cat.category)
+        icon, color = get_category_info(cat.category, user_id)
         categories.append({
             'name': cat.category,
             'icon': icon,
@@ -232,6 +352,8 @@ def update_income(month):
     
     return jsonify({'success': True, 'income': float(budget.income)})
 
+# ==================== TRANSACTION API ROUTES ====================
+
 @app.route('/api/transactions/<month>')
 def get_transactions(month):
     """Get all transactions for a month, grouped by day"""
@@ -258,7 +380,7 @@ def get_transactions(month):
             grouped[date_key] = []
             daily_totals[date_key] = 0
         
-        icon, color = get_category_info(trans.category)
+        icon, color = get_category_info(trans.category, user_id)
         
         grouped[date_key].append({
             'id': trans.id,
@@ -370,7 +492,7 @@ def add_transaction():
     budget.last_updated = datetime.utcnow()
     db.session.commit()
     
-    icon, color = get_category_info(category)
+    icon, color = get_category_info(category, user_id)
     
     return jsonify({
         'success': True,
