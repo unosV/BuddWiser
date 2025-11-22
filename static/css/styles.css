@@ -1092,7 +1092,7 @@ body {
     margin-bottom: 0.4rem;
 }
 
-/* Mobile Responsive - Category Management */
+/* Mobile Responsive */
 @media (max-width: 768px) {
     .categories-grid {
         grid-template-columns: 1fr;
@@ -1118,10 +1118,5 @@ body {
     
     .category-badge .category-icon {
         font-size: 1.6rem;
-    }
-    
-    .delete-cat-btn {
-        opacity: 1;
-        transform: scale(1);
     }
 }
