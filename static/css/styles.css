@@ -865,3 +865,263 @@ body {
         width: 95%;
     }
 }
+
+/* ==================== CATEGORY MANAGEMENT - MODERN DESIGN ==================== */
+
+/* Manage Categories Button - Modern White Button */
+.manage-categories-btn {
+    padding: 0.6rem 1.2rem;
+    background: white;
+    color: var(--primary);
+    border: none;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.manage-categories-btn:hover {
+    background: rgba(255,255,255,0.95);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Categories Grid Layout */
+.categories-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+/* Category Badge - Modern Cards */
+.category-badge {
+    padding: 1.2rem;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.category-badge::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: currentColor;
+}
+
+.category-badge:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+
+.category-badge .category-icon {
+    font-size: 2rem;
+    margin-left: 0.5rem;
+}
+
+.category-badge .category-name {
+    font-weight: 600;
+    flex: 1;
+    font-size: 1rem;
+}
+
+/* Delete Button - Shows on Hover */
+.delete-cat-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: rgba(244, 92, 67, 0.1);
+    border: 2px solid rgba(244, 92, 67, 0.3);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 24px;
+    line-height: 28px;
+    transition: all 0.2s ease;
+    opacity: 0;
+    transform: scale(0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 300;
+}
+
+.category-badge:hover .delete-cat-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.delete-cat-btn:hover {
+    background: #f45c43;
+    border-color: #f45c43;
+    color: white;
+    transform: scale(1.15) !important;
+}
+
+/* Custom Category Badge Styling */
+.category-badge.custom {
+    border: 2px solid rgba(102, 126, 234, 0.2);
+    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,1) 100%);
+}
+
+.category-badge.custom:hover {
+    border-color: rgba(102, 126, 234, 0.4);
+}
+
+/* Add Category Form - Modern Gradient Card */
+.add-category-form {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    margin-top: 2.5rem;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+}
+
+.add-category-form h3 {
+    color: white;
+    margin-bottom: 1.5rem;
+    font-size: 1.3rem;
+}
+
+.add-category-form .form-group {
+    margin-bottom: 1.5rem;
+}
+
+.add-category-form .form-group label {
+    color: white;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: block;
+    font-size: 0.95rem;
+}
+
+.add-category-form input[type="text"] {
+    background: white;
+    border: none;
+    padding: 0.9rem 1rem;
+    border-radius: var(--radius-md);
+    width: 100%;
+    font-size: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: var(--transition);
+}
+
+.add-category-form input[type="text"]:focus {
+    outline: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transform: translateY(-1px);
+}
+
+.add-category-form input[type="color"] {
+    background: white;
+    border: 3px solid rgba(255,255,255,0.3);
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    width: 100%;
+    height: 55px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.add-category-form input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 4px;
+}
+
+.add-category-form input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 6px;
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.add-category-form .btn {
+    width: 100%;
+    margin-top: 0.5rem;
+    background: white;
+    color: var(--primary);
+    font-weight: 700;
+    padding: 1rem;
+    font-size: 1.05rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.add-category-form .btn:hover {
+    background: rgba(255,255,255,0.95);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+/* Tips Section */
+.category-tips {
+    margin-top: 1.5rem;
+    padding: 1.2rem;
+    background: rgba(255,255,255,0.05);
+    border-radius: var(--radius-md);
+    border: 2px solid rgba(255,255,255,0.1);
+}
+
+.category-tips strong {
+    color: white;
+    font-size: 1rem;
+}
+
+.category-tips ul {
+    margin: 0.8rem 0 0 1.5rem;
+    color: rgba(255,255,255,0.9);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.category-tips li {
+    margin-bottom: 0.4rem;
+}
+
+/* Mobile Responsive - Category Management */
+@media (max-width: 768px) {
+    .categories-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-row {
+        flex-direction: column;
+    }
+    
+    .header-actions {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .manage-categories-btn {
+        font-size: 0.85rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    .add-category-form {
+        padding: 1.5rem;
+    }
+    
+    .category-badge .category-icon {
+        font-size: 1.6rem;
+    }
+    
+    .delete-cat-btn {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
