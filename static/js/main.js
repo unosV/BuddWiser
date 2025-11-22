@@ -656,3 +656,130 @@ document.querySelectorAll('.modal').forEach(modal => {
         }
     });
 });
+
+// ==================== CATEGORY MANAGEMENT ====================
+
+function openCategoryManager() {
+    loadCategoryManager();
+    document.getElementById('categoryManagerModal').classList.add('show');
+}
+
+function closeCategoryManager() {
+    document.getElementById('categoryManagerModal').classList.remove('show');
+}
+
+async function loadCategoryManager() {
+    try {
+        const response = await fetch('/api/categories');
+        const categories = await response.json();
+        
+        // Separate default and custom categories
+        const defaultCats = categories.filter(c => !c.custom);
+        const customCats = categories.filter(c => c.custom);
+        
+        // Render default categories
+        const defaultList = document.getElementById('defaultCategoriesList');
+        defaultList.innerHTML = defaultCats.map(cat => `
+            <div class="category-badge" style="background-color: ${cat.color}20; border-left: 4px solid ${cat.color};">
+                <span class="category-icon">${cat.icon}</span>
+                <span class="category-name">${cat.name}</span>
+            </div>
+        `).join('');
+        
+        // Render custom categories
+        const customList = document.getElementById('customCategoriesList');
+        if (customCats.length === 0) {
+            customList.innerHTML = '<p class="empty-state">No custom categories yet. Add one below!</p>';
+        } else {
+            customList.innerHTML = customCats.map(cat => `
+                <div class="category-badge custom" style="background-color: ${cat.color}20; border-left: 4px solid ${cat.color};">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span class="category-icon">${cat.icon}</span>
+                        <span class="category-name">${cat.name}</span>
+                    </div>
+                    <button class="delete-cat-btn" onclick="deleteCategory(${cat.id})" title="Delete category">🗑️</button>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading categories:', error);
+        showToast('Error loading categories', 'error');
+    }
+}
+
+async function addNewCategory() {
+    const name = document.getElementById('newCategoryName').value.trim();
+    const icon = document.getElementById('newCategoryIcon').value.trim() || '📝';
+    const color = document.getElementById('newCategoryColor').value;
+    
+    if (!name) {
+        showToast('Please enter a category name', 'error');
+        return;
+    }
+    
+    if (name.length > 50) {
+        showToast('Category name too long (max 50 characters)', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/category', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, icon, color })
+        });
+        
+        if (response.ok) {
+            showToast('Category added successfully! 🎉', 'success');
+            
+            // Clear form
+            document.getElementById('newCategoryName').value = '';
+            document.getElementById('newCategoryIcon').value = '';
+            document.getElementById('newCategoryColor').value = '#36A2EB';
+            
+            // Reload categories everywhere
+            await loadCategories();
+            await loadCategoryManager();
+            
+        } else {
+            const data = await response.json();
+            showToast(data.error || 'Failed to add category', 'error');
+        }
+    } catch (error) {
+        console.error('Error adding category:', error);
+        showToast('Error adding category', 'error');
+    }
+}
+
+async function deleteCategory(catId) {
+    if (!confirm('Delete this category? This cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/category/${catId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            showToast('Category deleted successfully', 'success');
+            
+            // Reload categories everywhere
+            await loadCategories();
+            await loadCategoryManager();
+            
+        } else {
+            const data = await response.json();
+            
+            // Show specific error message
+            if (data.count) {
+                showToast(`Cannot delete: Used in ${data.count} transaction(s)`, 'error');
+            } else {
+                showToast(data.error || 'Failed to delete category', 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Error deleting category:', error);
+        showToast('Error deleting category', 'error');
+    }
+}
