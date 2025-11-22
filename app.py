@@ -4,7 +4,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 from sqlalchemy import func
 import os
-import calendar
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -34,7 +33,7 @@ class Budget(db.Model):
     __tablename__ = 'budgets'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    month = db.Column(db.String(7), nullable=False)  # Format: YYYY-MM
+    month = db.Column(db.String(7), nullable=False)
     income = db.Column(db.Float, default=0)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -83,7 +82,6 @@ def get_user_categories(user_id):
     """Get all categories for a user (default + custom)"""
     custom_categories = UserCategory.query.filter_by(user_id=user_id).all()
     
-    # Combine default and custom categories
     all_categories = DEFAULT_CATEGORIES.copy()
     
     for cat in custom_categories:
@@ -99,12 +97,10 @@ def get_user_categories(user_id):
 
 def get_category_info(category_name, user_id):
     """Get icon and color for a category"""
-    # Check custom categories first
     custom = UserCategory.query.filter_by(user_id=user_id, name=category_name).first()
     if custom:
         return custom.icon, custom.color
     
-    # Check default categories
     cat = next((c for c in DEFAULT_CATEGORIES if c['name'] == category_name), None)
     if cat:
         return cat['icon'], cat['color']
@@ -112,7 +108,7 @@ def get_category_info(category_name, user_id):
     return '📝', '#36A2EB'
 
 def get_week_dates(date_obj):
-    """Get start and end date of the week containing date_obj (Monday-Sunday)"""
+    """Get start and end date of the week"""
     start = date_obj - timedelta(days=date_obj.weekday())
     end = start + timedelta(days=6)
     return start, end
@@ -182,13 +178,12 @@ def logout():
 
 @app.route('/api/categories')
 def get_categories():
-    """Get all available categories for the current user"""
+    """Get all available categories"""
     if 'user_id' not in session:
-        return jsonify({'error': 'Not authenticated'}), 401
+        return jsonify(DEFAULT_CATEGORIES)
     
     user_id = session['user_id']
     categories = get_user_categories(user_id)
-    
     return jsonify(categories)
 
 @app.route('/api/category', methods=['POST'])
@@ -207,13 +202,11 @@ def add_category():
     if not name:
         return jsonify({'error': 'Category name is required'}), 400
     
-    # Check if category already exists
     if UserCategory.query.filter_by(user_id=user_id, name=name).first():
         return jsonify({'error': 'Category already exists'}), 400
     
-    # Check if it's a default category
     if any(c['name'] == name for c in DEFAULT_CATEGORIES):
-        return jsonify({'error': 'Cannot create category with default name'}), 400
+        return jsonify({'error': 'Cannot use default category name'}), 400
     
     new_category = UserCategory(
         user_id=user_id,
@@ -249,7 +242,6 @@ def delete_category(category_id):
     if not category:
         return jsonify({'error': 'Category not found'}), 404
     
-    # Check if category is being used in transactions
     transactions_count = db.session.query(func.count(Transaction.id)).join(Budget).filter(
         Budget.user_id == user_id,
         Transaction.category == category.name
@@ -257,7 +249,7 @@ def delete_category(category_id):
     
     if transactions_count > 0:
         return jsonify({
-            'error': f'Cannot delete category. It is used in {transactions_count} transaction(s)',
+            'error': f'Cannot delete. Used in {transactions_count} transaction(s)',
             'count': transactions_count
         }), 400
     
@@ -286,7 +278,6 @@ def get_budget(month):
             'top_categories': []
         })
     
-    # Calculate totals by category
     category_totals = db.session.query(
         Transaction.category,
         func.sum(Transaction.amount).label('total'),
@@ -299,7 +290,6 @@ def get_budget(month):
     
     total_spent = sum(cat.total for cat in category_totals)
     
-    # Format categories with icons and colors
     categories = []
     for cat in category_totals:
         icon, color = get_category_info(cat.category, user_id)
@@ -312,7 +302,6 @@ def get_budget(month):
             'percentage': round((cat.total / total_spent * 100) if total_spent > 0 else 0, 1)
         })
     
-    # Sort by total (descending) and get top 3
     categories.sort(key=lambda x: x['total'], reverse=True)
     top_categories = categories[:3]
     
@@ -352,11 +341,9 @@ def update_income(month):
     
     return jsonify({'success': True, 'income': float(budget.income)})
 
-# ==================== TRANSACTION API ROUTES ====================
-
 @app.route('/api/transactions/<month>')
 def get_transactions(month):
-    """Get all transactions for a month, grouped by day"""
+    """Get all transactions for a month"""
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
     
@@ -366,10 +353,8 @@ def get_transactions(month):
     if not budget:
         return jsonify({'transactions': [], 'daily_totals': {}})
     
-    # Get all transactions sorted by date (newest first)
     transactions = Transaction.query.filter_by(budget_id=budget.id).order_by(Transaction.date.desc(), Transaction.created_at.desc()).all()
     
-    # Group by date
     grouped = {}
     daily_totals = {}
     
@@ -412,18 +397,15 @@ def get_week_totals(month):
     if not budget:
         return jsonify({'week': []})
     
-    # Get current week dates
     today = datetime.now().date()
     week_start, week_end = get_week_dates(today)
     
-    # Generate all days in the week
     week_days = []
     current = week_start
     while current <= week_end:
         week_days.append(current)
         current += timedelta(days=1)
     
-    # Get transactions for this week
     week_transactions = db.session.query(
         Transaction.date,
         func.sum(Transaction.amount).label('total')
@@ -435,10 +417,8 @@ def get_week_totals(month):
         Transaction.date
     ).all()
     
-    # Create lookup dict
     totals_dict = {t.date: float(t.total) for t in week_transactions}
     
-    # Build response
     week_data = []
     for day in week_days:
         week_data.append({
@@ -464,7 +444,7 @@ def add_transaction():
     category = data.get('category', '').strip()
     description = data.get('description', '').strip()
     date_str = data.get('date', datetime.now().date().isoformat())
-    month = date_str[:7]  # YYYY-MM
+    month = date_str[:7]
     
     if amount <= 0:
         return jsonify({'error': 'Amount must be positive'}), 400
@@ -472,14 +452,12 @@ def add_transaction():
     if not category:
         return jsonify({'error': 'Category is required'}), 400
     
-    # Get or create budget for this month
     budget = Budget.query.filter_by(user_id=user_id, month=month).first()
     if not budget:
         budget = Budget(user_id=user_id, month=month, income=0)
         db.session.add(budget)
         db.session.flush()
     
-    # Create transaction
     transaction = Transaction(
         budget_id=budget.id,
         amount=amount,
@@ -515,7 +493,6 @@ def delete_transaction(trans_id):
     
     user_id = session['user_id']
     
-    # Get transaction and verify ownership
     transaction = Transaction.query.join(Budget).filter(
         Transaction.id == trans_id,
         Budget.user_id == user_id
@@ -533,26 +510,23 @@ def delete_transaction(trans_id):
 
 @app.route('/api/trends/<int:months>')
 def get_trends(months):
-    """Get spending trends for the last N months"""
+    """Get spending trends"""
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
     
     user_id = session['user_id']
     
-    # Get last N months
     today = datetime.now()
     month_list = []
     for i in range(months - 1, -1, -1):
         date = today - timedelta(days=30 * i)
         month_list.append(date.strftime('%Y-%m'))
     
-    # Get budgets for these months
     budgets = Budget.query.filter(
         Budget.user_id == user_id,
         Budget.month.in_(month_list)
     ).all()
     
-    # Calculate data for each month
     trends = []
     for month_str in month_list:
         budget = next((b for b in budgets if b.month == month_str), None)
